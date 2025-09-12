@@ -1,12 +1,16 @@
 import { compare, hash } from "bcryptjs";
-import { eq } from "drizzle-orm";
+import { eq, getTableColumns } from "drizzle-orm";
 import { cookies } from "next/headers";
-import { session, user } from "./schemas";
+import { session as sessionSchema, user as userSchema } from "./schemas";
 import type {
   AuthConfig,
   AuthInstance,
+  SignInCallback,
   SignInParams,
+  SignOutCallback,
+  SignUpCallback,
   SignUpParams,
+  User,
 } from "./types";
 
 const hashPassword = async (password: string) => {
@@ -18,108 +22,174 @@ const verifyPassword = async (password: string, hashedPassword: string) => {
 };
 
 export const createAuth = ({ db }: AuthConfig): AuthInstance => {
-  const signUp = async ({ name, email, password }: SignUpParams) => {
-    const hashedPassword = await hashPassword(password);
+  const signUp = async (
+    { name, email, password }: SignUpParams,
+    { onSuccess, onError }: SignUpCallback = {}
+  ) => {
+    let createdUser: User | undefined;
 
-    // Create user
-    const [createdUser] = await db
-      .insert(user)
-      .values({
-        name,
-        email,
-        password: hashedPassword,
-      })
-      .returning();
+    try {
+      // Check if user already exists
+      const [matchedUser] = await db
+        .select()
+        .from(userSchema)
+        .where(eq(userSchema.email, email));
 
-    // Expire in 1 day
-    // biome-ignore lint/style/noMagicNumbers: magic number
-    const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24);
+      if (matchedUser) {
+        throw new Error("User already exists");
+      }
 
-    // Create session
-    const [createdSession] = await db
-      .insert(session)
-      .values({
-        expiresAt,
-        userId: createdUser.id,
-      })
-      .returning();
+      const hashedPassword = await hashPassword(password);
 
-    // Set-Cookie in response header
-    const cookieStore = await cookies();
-    cookieStore.set("yzy98-auth", createdSession.id, {
-      httpOnly: true,
-      secure: true,
-      expires: expiresAt,
-      sameSite: "lax",
-      path: "/",
+      // Create user
+      [createdUser] = await db
+        .insert(userSchema)
+        .values({
+          name,
+          email,
+          password: hashedPassword,
+        })
+        .returning();
+
+      // Expire in 1 day
+      // biome-ignore lint/style/noMagicNumbers: magic number
+      const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24);
+
+      // Create session
+      const [createdSession] = await db
+        .insert(sessionSchema)
+        .values({
+          expiresAt,
+          userId: createdUser.id,
+        })
+        .returning();
+
+      // Set-Cookie in response header
+      const cookieStore = await cookies();
+      cookieStore.set("yzy98-auth.session_id", createdSession.id, {
+        httpOnly: true,
+        secure: true,
+        expires: expiresAt,
+        sameSite: "lax",
+        path: "/",
+      });
+    } catch (error) {
+      onError?.(error as Error);
+      throw error;
+    }
+
+    // Call onSuccess callback
+    onSuccess?.({
+      id: createdUser.id,
+      name: createdUser.name,
+      email: createdUser.email,
     });
   };
 
-  const signIn = async ({ email, password }: SignInParams) => {
-    // Find user
-    const [matchedUser] = await db
-      .select()
-      .from(user)
-      .where(eq(user.email, email));
+  const signIn = async (
+    { email, password }: SignInParams,
+    { onSuccess, onError }: SignInCallback = {}
+  ) => {
+    let matchedUser: User | undefined;
 
-    if (!matchedUser) {
-      throw new Error("Email is not valid");
+    try {
+      // Find user
+      [matchedUser] = await db
+        .select()
+        .from(userSchema)
+        .where(eq(userSchema.email, email));
+
+      if (!matchedUser) {
+        throw new Error("Email is not valid");
+      }
+
+      // Verify password
+      const isPasswordValid = await verifyPassword(
+        password,
+        matchedUser.password
+      );
+
+      if (!isPasswordValid) {
+        throw new Error("Password is not valid");
+      }
+
+      // Expire in 1 day
+      // biome-ignore lint/style/noMagicNumbers: magic number
+      const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24);
+
+      // Create session
+      const [createdSession] = await db
+        .insert(sessionSchema)
+        .values({
+          expiresAt,
+          userId: matchedUser.id,
+        })
+        .returning();
+
+      // Set-Cookie in response header
+      const cookieStore = await cookies();
+      cookieStore.set("yzy98-auth.session_id", createdSession.id, {
+        httpOnly: true,
+        secure: true,
+        expires: expiresAt,
+        sameSite: "lax",
+        path: "/",
+      });
+    } catch (error) {
+      onError?.(error as Error);
+      throw error;
     }
 
-    // Verify password
-    const isPasswordValid = await verifyPassword(
-      password,
-      matchedUser.password
-    );
-
-    if (!isPasswordValid) {
-      throw new Error("Password is not valid");
-    }
-
-    // Expire in 1 day
-    // biome-ignore lint/style/noMagicNumbers: magic number
-    const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24);
-
-    // Create session
-    const [createdSession] = await db
-      .insert(session)
-      .values({
-        expiresAt,
-        userId: matchedUser.id,
-      })
-      .returning();
-
-    // Set-Cookie in response header
-    const cookieStore = await cookies();
-    cookieStore.set("yzy98-auth", createdSession.id, {
-      httpOnly: true,
-      secure: true,
-      expires: expiresAt,
-      sameSite: "lax",
-      path: "/",
+    // Call onSuccess callback
+    onSuccess?.({
+      id: matchedUser.id,
+      name: matchedUser.name,
+      email: matchedUser.email,
     });
   };
 
-  const signOut = async () => {
-    // Get session id from cookie
-    const cookieStore = await cookies();
-    const sessionId = cookieStore.get("yzy98-auth")?.value;
+  const signOut = async ({ onSuccess, onError }: SignOutCallback = {}) => {
+    let signedOutUser: User | undefined;
 
-    if (!sessionId) {
-      throw new Error("Session id is not valid");
+    try {
+      // Get session id from cookie
+      const cookieStore = await cookies();
+      const sessionId = cookieStore.get("yzy98-auth.session_id")?.value;
+
+      if (!sessionId) {
+        throw new Error("Session id is not valid");
+      }
+
+      [signedOutUser] = await db
+        .select({
+          ...getTableColumns(userSchema),
+        })
+        .from(sessionSchema)
+        .innerJoin(userSchema, eq(sessionSchema.userId, userSchema.id))
+        .where(eq(sessionSchema.id, sessionId));
+
+      // Delete session in database
+      await db.delete(sessionSchema).where(eq(sessionSchema.id, sessionId));
+
+      // Delete cookie in client
+      cookieStore.delete("yzy98-auth.session_id");
+    } catch (error) {
+      onError?.(error as Error);
+      throw error;
     }
 
-    // Delete session in database
-    await db.delete(session).where(eq(session.id, sessionId));
-
-    // Delete cookie in client
-    cookieStore.delete("yzy98-auth");
+    // Call onSuccess callback
+    onSuccess?.({
+      id: signedOutUser.id,
+      name: signedOutUser.name,
+      email: signedOutUser.email,
+    });
   };
 
   const getSession = async () => {
     // Get session id from cookie
     const cookieStore = await cookies();
-    const sessionId = cookieStore.get("yzy98-auth")?.value;
+    const sessionId = cookieStore.get("yzy98-auth.session_id")?.value;
 
     if (!sessionId) {
       return null;
@@ -129,14 +199,14 @@ export const createAuth = ({ db }: AuthConfig): AuthInstance => {
     const [matchedSession] = await db
       .select({
         user: {
-          name: user.name,
-          email: user.email,
+          name: userSchema.name,
+          email: userSchema.email,
         },
-        session,
+        session: sessionSchema,
       })
-      .from(session)
-      .innerJoin(user, eq(session.userId, user.id))
-      .where(eq(session.id, sessionId));
+      .from(sessionSchema)
+      .innerJoin(userSchema, eq(sessionSchema.userId, userSchema.id))
+      .where(eq(sessionSchema.id, sessionId));
 
     if (!matchedSession) {
       return null;
@@ -145,9 +215,9 @@ export const createAuth = ({ db }: AuthConfig): AuthInstance => {
     // Check if session has expired
     if (matchedSession.session.expiresAt < new Date()) {
       // Delete expired session
-      await db.delete(session).where(eq(session.id, sessionId));
+      await db.delete(sessionSchema).where(eq(sessionSchema.id, sessionId));
       // Delete cookie
-      cookieStore.delete("yzy98-auth");
+      cookieStore.delete("yzy98-auth.session_id");
       return null;
     }
 
