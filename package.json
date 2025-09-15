@@ -20,11 +20,13 @@
   "license": "MIT",
   "peerDependencies": {
     "drizzle-orm": ">= 0.44.5",
-    "next": ">= 15.0.0"
+    "next": ">= 15.0.0",
+    "react": ">= 19.0.0"
   },
   "devDependencies": {
     "@biomejs/biome": "2.2.2",
     "@types/bcrypt": "^6.0.0",
+    "@types/react": "^19.1.13",
     "husky": "^9.1.7",
     "tsup": "^8.5.0",
     "typescript": "^5.9.2",
@@ -33,5 +35,22 @@
   "dependencies": {
     "bcryptjs": "^3.0.2",
     "nanoid": "^5.1.5"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./dist/client/index.d.ts",
+      "import": "./dist/client/index.mjs",
+      "require": "./dist/client/index.js"
+    },
+    "./next-js": {
+      "types": "./dist/next-js/index.d.ts",
+      "import": "./dist/next-js/index.mjs",
+      "require": "./dist/next-js/index.js"
+    }
   }
 }

@@ -75,15 +75,19 @@ export const createAuth = ({ db }: AuthConfig): AuthInstance => {
       });
     } catch (error) {
       onError?.(error as Error);
-      throw error;
+      return { data: null, error: error as Error };
     }
 
-    // Call onSuccess callback
-    onSuccess?.({
+    const returnedUser = {
       id: createdUser.id,
       name: createdUser.name,
       email: createdUser.email,
-    });
+    };
+
+    // Call onSuccess callback
+    onSuccess?.(returnedUser);
+
+    return { data: { user: returnedUser }, error: null };
   };
 
   const signIn = async (
@@ -137,15 +141,19 @@ export const createAuth = ({ db }: AuthConfig): AuthInstance => {
       });
     } catch (error) {
       onError?.(error as Error);
-      throw error;
+      return { data: null, error: error as Error };
     }
 
-    // Call onSuccess callback
-    onSuccess?.({
+    const returnedUser = {
       id: matchedUser.id,
       name: matchedUser.name,
       email: matchedUser.email,
-    });
+    };
+
+    // Call onSuccess callback
+    onSuccess?.(returnedUser);
+
+    return { data: { user: returnedUser }, error: null };
   };
 
   const signOut = async ({ onSuccess, onError }: SignOutCallback = {}) => {
@@ -168,60 +176,80 @@ export const createAuth = ({ db }: AuthConfig): AuthInstance => {
         .innerJoin(userSchema, eq(sessionSchema.userId, userSchema.id))
         .where(eq(sessionSchema.id, sessionId));
 
+      if (!signedOutUser) {
+        throw new Error("User is not exist in database");
+      }
+
       // Delete session in database
-      await db.delete(sessionSchema).where(eq(sessionSchema.id, sessionId));
+      const [deletedSession] = await db
+        .delete(sessionSchema)
+        .where(eq(sessionSchema.id, sessionId))
+        .returning();
+
+      if (!deletedSession) {
+        throw new Error("Session is not exist in database");
+      }
 
       // Delete cookie in client
       cookieStore.delete("yzy98-auth.session_id");
     } catch (error) {
       onError?.(error as Error);
-      throw error;
+      return { data: null, error: error as Error };
     }
 
-    // Call onSuccess callback
-    onSuccess?.({
+    const returnedUser = {
       id: signedOutUser.id,
       name: signedOutUser.name,
       email: signedOutUser.email,
-    });
+    };
+
+    // Call onSuccess callback
+    onSuccess?.(returnedUser);
+
+    return { data: { user: returnedUser }, error: null };
   };
 
   const getSession = async () => {
-    // Get session id from cookie
-    const cookieStore = await cookies();
-    const sessionId = cookieStore.get("yzy98-auth.session_id")?.value;
+    try {
+      // Get session id from cookie
+      const cookieStore = await cookies();
+      const sessionId = cookieStore.get("yzy98-auth.session_id")?.value;
 
-    if (!sessionId) {
-      return null;
+      if (!sessionId) {
+        throw new Error("Session id is not exist in cookie");
+      }
+
+      // Find session and related user in database
+      const [matchedSession] = await db
+        .select({
+          user: {
+            name: userSchema.name,
+            email: userSchema.email,
+            id: userSchema.id,
+          },
+          session: sessionSchema,
+        })
+        .from(sessionSchema)
+        .innerJoin(userSchema, eq(sessionSchema.userId, userSchema.id))
+        .where(eq(sessionSchema.id, sessionId));
+
+      if (!matchedSession) {
+        throw new Error("Session is not exist in database");
+      }
+
+      // Check if session has expired
+      if (matchedSession.session.expiresAt < new Date()) {
+        // Delete expired session
+        await db.delete(sessionSchema).where(eq(sessionSchema.id, sessionId));
+        // Delete cookie
+        cookieStore.delete("yzy98-auth.session_id");
+        throw new Error("Session is expired");
+      }
+
+      return { data: matchedSession, error: null };
+    } catch (error) {
+      return { data: null, error: error as Error };
     }
-
-    // Find session and related user in database
-    const [matchedSession] = await db
-      .select({
-        user: {
-          name: userSchema.name,
-          email: userSchema.email,
-        },
-        session: sessionSchema,
-      })
-      .from(sessionSchema)
-      .innerJoin(userSchema, eq(sessionSchema.userId, userSchema.id))
-      .where(eq(sessionSchema.id, sessionId));
-
-    if (!matchedSession) {
-      return null;
-    }
-
-    // Check if session has expired
-    if (matchedSession.session.expiresAt < new Date()) {
-      // Delete expired session
-      await db.delete(sessionSchema).where(eq(sessionSchema.id, sessionId));
-      // Delete cookie
-      cookieStore.delete("yzy98-auth.session_id");
-      return null;
-    }
-
-    return matchedSession;
   };
 
   return {
@@ -233,4 +261,3 @@ export const createAuth = ({ db }: AuthConfig): AuthInstance => {
 };
 
 // [TODO] Fix the db type for peerDependencies
-// [TODO] Add client side useAuth hook
