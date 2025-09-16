@@ -1,4 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import type {
+  GetSessionResponse,
+  SignActionResponse,
+} from "../integrations/next-js";
 import type {
   AuthClientInstance,
   GetSessionData,
@@ -22,15 +26,15 @@ export const createAuthClient = (): AuthClientInstance => {
       },
       body: JSON.stringify({ name, email, password }),
     });
-    const result = await response.json();
+    const result = (await response.json()) as SignActionResponse;
 
-    if (!response.ok || result.error) {
+    if ("error" in result) {
       onError?.(new Error(result.error));
-      return { data: null, error: result.error as string };
+      return { data: null, error: result.error };
     }
 
-    onSuccess?.(result?.user);
-    return { data: { user: result?.user }, error: null };
+    onSuccess?.(result.user);
+    return { data: { user: result.user }, error: null };
   };
 
   const signIn = async (
@@ -44,15 +48,15 @@ export const createAuthClient = (): AuthClientInstance => {
       },
       body: JSON.stringify({ email, password }),
     });
-    const result = await response.json();
+    const result = (await response.json()) as SignActionResponse;
 
-    if (!response.ok || result.error) {
+    if ("error" in result) {
       onError?.(new Error(result.error));
-      return { data: null, error: result.error as string };
+      return { data: null, error: result.error };
     }
 
-    onSuccess?.(result?.user);
-    return { data: { user: result?.user }, error: null };
+    onSuccess?.(result.user);
+    return { data: { user: result.user }, error: null };
   };
 
   const signOut = async ({ onSuccess, onError }: SignOutCallback = {}) => {
@@ -62,15 +66,15 @@ export const createAuthClient = (): AuthClientInstance => {
         "Content-Type": "application/json",
       },
     });
-    const result = await response.json();
+    const result = (await response.json()) as SignActionResponse;
 
-    if (!response.ok || result.error) {
+    if ("error" in result) {
       onError?.(new Error(result.error));
-      return { data: null, error: result.error as string };
+      return { data: null, error: result.error };
     }
 
-    onSuccess?.(result?.user);
-    return { data: { user: result?.user }, error: null };
+    onSuccess?.(result.user);
+    return { data: { user: result.user }, error: null };
   };
 
   // [TODO]: Improve type definition and error handling
@@ -80,7 +84,7 @@ export const createAuthClient = (): AuthClientInstance => {
     const [error, setError] = useState<Error | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
-    const fetchSession = async () => {
+    const fetchSession = useCallback(async () => {
       try {
         setIsLoading(true);
         setError(null);
@@ -97,12 +101,7 @@ export const createAuthClient = (): AuthClientInstance => {
           throw new Error(`Failed to fetch session: ${response.status}`);
         }
 
-        const result = await response.json();
-
-        if (result.error) {
-          throw new Error(result.error);
-        }
-
+        const result = (await response.json()) as GetSessionResponse;
         setData(result.session);
       } catch (err) {
         setError(err instanceof Error ? err : new Error("Unknown error"));
@@ -110,21 +109,17 @@ export const createAuthClient = (): AuthClientInstance => {
       } finally {
         setIsLoading(false);
       }
-    };
-
-    const refetch = async () => {
-      await fetchSession();
-    };
+    }, []);
 
     useEffect(() => {
       fetchSession();
-    });
+    }, [fetchSession]);
 
     return {
       data,
       error,
       isLoading,
-      refetch,
+      refetch: fetchSession,
     };
   };
 

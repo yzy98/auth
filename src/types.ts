@@ -41,7 +41,7 @@ type Failure<E> = {
 
 type Result<T, E = Error> = Success<T> | Failure<E>;
 
-type SignActionData = {
+export type SignActionData = {
   user: PickedUser;
 };
 
@@ -72,7 +72,7 @@ export type UseSessionResult = {
   refetch: () => Promise<void>;
 };
 
-type SignActionClientResult = Result<SignActionData, string>;
+export type SignActionClientResult = Result<SignActionData, string>;
 
 export type AuthClientInstance = {
   signUp: (

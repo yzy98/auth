@@ -1,5 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server";
-import type { AuthInstance, SignInParams, SignUpParams } from "../types";
+import type {
+  AuthInstance,
+  GetSessionData,
+  PickedUser,
+  SignInParams,
+  SignUpParams,
+} from "../types";
 
 const POST_ACTION = {
   SIGN_UP: "sign-up",
@@ -15,8 +21,23 @@ const GET_ACTION = {
 type PostAction = (typeof POST_ACTION)[keyof typeof POST_ACTION];
 type GetAction = (typeof GET_ACTION)[keyof typeof GET_ACTION];
 
+export type SignActionSuccess = {
+  user: PickedUser;
+};
+
+export type SignActionError = {
+  error: string;
+};
+
+export type SignActionResponse = SignActionSuccess | SignActionError;
+export type GetSessionResponse = {
+  session: GetSessionData | null;
+};
+
 export const NextJsRouter = (auth: AuthInstance) => {
-  const handleSignUp = async (request: NextRequest) => {
+  const handleSignUp = async (
+    request: NextRequest
+  ): Promise<NextResponse<SignActionResponse>> => {
     const body = (await request.json()) as SignUpParams;
 
     if (!(body.email && body.password)) {
@@ -38,7 +59,9 @@ export const NextJsRouter = (auth: AuthInstance) => {
     return NextResponse.json({ user: result.data.user }, { status: 200 });
   };
 
-  const handleSignIn = async (request: NextRequest) => {
+  const handleSignIn = async (
+    request: NextRequest
+  ): Promise<NextResponse<SignActionResponse>> => {
     const body = (await request.json()) as SignInParams;
 
     if (!(body.email && body.password)) {
@@ -60,8 +83,8 @@ export const NextJsRouter = (auth: AuthInstance) => {
     return NextResponse.json({ user: result.data.user }, { status: 200 });
   };
 
-  const handleSignOut = async () => {
-    const result = await auth.signOut({});
+  const handleSignOut = async (): Promise<NextResponse<SignActionResponse>> => {
+    const result = await auth.signOut();
 
     if (result.error) {
       return NextResponse.json(
@@ -73,13 +96,12 @@ export const NextJsRouter = (auth: AuthInstance) => {
     return NextResponse.json({ user: result.data.user }, { status: 200 });
   };
 
-  const handleGetSession = async () => {
+  const handleGetSession = async (): Promise<
+    NextResponse<GetSessionResponse>
+  > => {
     const result = await auth.getSession();
     if (result.error) {
-      return NextResponse.json(
-        { error: result.error?.message || "Get Session failed" },
-        { status: 400 }
-      );
+      return NextResponse.json({ session: null }, { status: 200 });
     }
     return NextResponse.json({ session: result.data }, { status: 200 });
   };
