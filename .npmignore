@@ -8,3 +8,8 @@
 tsconfig.json
 tsup.config.ts
 biome.jsonc
+
+.claude
+.cursor
+.husky
+.vscode
