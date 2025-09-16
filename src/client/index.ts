@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import type {
-  GetSessionResponse,
-  SignActionResponse,
-} from "../integrations/next-js";
-import type {
   AuthClientInstance,
   GetSessionData,
+  GetSessionResponse,
+  SignActionResponse,
   SignInCallback,
   SignInParams,
   SignOutCallback,
@@ -77,8 +75,6 @@ export const createAuthClient = (): AuthClientInstance => {
     return { data: { user: result.user }, error: null };
   };
 
-  // [TODO]: Improve type definition and error handling
-  // [TODO]: Test useSession
   const useSession = (): UseSessionResult => {
     const [data, setData] = useState<GetSessionData | null>(null);
     const [error, setError] = useState<Error | null>(null);

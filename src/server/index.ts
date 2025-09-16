@@ -1,7 +1,7 @@
 import { compare, hash } from "bcryptjs";
 import { eq, getTableColumns } from "drizzle-orm";
 import { cookies } from "next/headers";
-import { session as sessionSchema, user as userSchema } from "./schemas";
+import { session as sessionSchema, user as userSchema } from "../db/schema";
 import type {
   AuthConfig,
   AuthInstance,
@@ -11,7 +11,7 @@ import type {
   SignUpCallback,
   SignUpParams,
   User,
-} from "./types";
+} from "../types";
 
 const hashPassword = async (password: string) => {
   return await hash(password, 10);

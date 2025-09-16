@@ -1,38 +1,14 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { GET_ACTION, POST_ACTION } from "../constants";
 import type {
   AuthInstance,
-  GetSessionData,
-  PickedUser,
+  GetAction,
+  GetSessionResponse,
+  PostAction,
+  SignActionResponse,
   SignInParams,
   SignUpParams,
 } from "../types";
-
-const POST_ACTION = {
-  SIGN_UP: "sign-up",
-  SIGN_IN: "sign-in",
-  SIGN_OUT: "sign-out",
-  GET_SESSION: "get-session",
-};
-
-const GET_ACTION = {
-  GET_SESSION: "get-session",
-};
-
-type PostAction = (typeof POST_ACTION)[keyof typeof POST_ACTION];
-type GetAction = (typeof GET_ACTION)[keyof typeof GET_ACTION];
-
-export type SignActionSuccess = {
-  user: PickedUser;
-};
-
-export type SignActionError = {
-  error: string;
-};
-
-export type SignActionResponse = SignActionSuccess | SignActionError;
-export type GetSessionResponse = {
-  session: GetSessionData | null;
-};
 
 export const NextJsRouter = (auth: AuthInstance) => {
   const handleSignUp = async (
