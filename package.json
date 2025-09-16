@@ -5,6 +5,10 @@
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
+  "homepage": "https://github.com/yzy98/auth",
+  "repository": {
+    "url": "https://github.com/yzy98/auth"
+  },
   "scripts": {
     "build": "tsup",
     "check": "pnpm dlx ultracite check",
@@ -14,7 +18,8 @@
   "keywords": [
     "auth",
     "authentication",
-    "stateful"
+    "stateful",
+    "next.js"
   ],
   "author": "Zi Yang",
   "license": "MIT",
