@@ -1,7 +1,7 @@
 {
   "name": "@yzy98/auth",
   "description": "An lightweight stateful authentication library",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
@@ -13,7 +13,8 @@
     "build": "tsup",
     "check": "pnpm dlx ultracite check",
     "fix": "pnpm dlx ultracite fix",
-    "prepare": "husky"
+    "prepare": "husky",
+    "bump": "bumpp"
   },
   "keywords": [
     "auth",
@@ -32,6 +33,7 @@
     "@biomejs/biome": "2.2.2",
     "@types/bcrypt": "^6.0.0",
     "@types/react": "^19.1.13",
+    "bumpp": "^10.2.3",
     "husky": "^9.1.7",
     "tsup": "^8.5.0",
     "typescript": "^5.9.2",
