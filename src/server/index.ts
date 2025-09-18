@@ -1,3 +1,5 @@
+import "server-only";
+
 import { compare, hash } from "bcryptjs";
 import { eq, getTableColumns } from "drizzle-orm";
 import { cookies } from "next/headers";
